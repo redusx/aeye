@@ -35,7 +35,7 @@ export interface FittingConfig {
 }
 
 const DEFAULT_CONFIG: Required<FittingConfig> = {
-  widthRatio: 0.47,           // Glasses span ~47% of head width
+  widthRatio: 0.62,           // Glasses span ~62% of head width
   verticalOffsetRatio: 0.04,  // Eyes ~4% above bbox center
   depthRecessRatio: 0.16,     // Glasses front surface sits 16% of head depth behind forehead
 };
