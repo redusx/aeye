@@ -1,18 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/header";
 import { FilterSidebar } from "@/components/filter-sidebar";
 import { SortingBar } from "@/components/sorting-bar";
 import { ProductGrid } from "@/components/product-grid";
-import { Pagination } from "@/components/pagination";
 import { SEOSection } from "@/components/seo-section";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ProductListingPage() {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [modelCount, setModelCount] = useState(0);
+
+  useEffect(() => {
+    fetch("/api/glasses")
+      .then((r) => r.json())
+      .then((data) => setModelCount(data.models?.length ?? 0))
+      .catch(() => setModelCount(0));
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -80,19 +86,13 @@ export default function ProductListingPage() {
           {/* Product Area */}
           <div className="flex-1 min-w-0">
             <SortingBar
-              productCount={702}
+              productCount={modelCount}
               onToggleFilters={() => setShowMobileFilters(true)}
             />
 
             <div className="mt-4">
               <ProductGrid />
             </div>
-
-            <Pagination
-              currentPage={currentPage}
-              totalPages={59}
-              onPageChange={setCurrentPage}
-            />
 
             <SEOSection />
           </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import { Suspense, useRef, useState, useEffect, useCallback } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Center, Environment } from "@react-three/drei";
-import type { Group } from "three";
+import { Canvas, useThree, useFrame } from "@react-three/fiber";
+import { OrbitControls, useGLTF, Environment } from "@react-three/drei";
+import * as THREE from "three";
+import { fitGlassesToHead } from "../lib/glassesFitter";
 
 // ─── Global WebGL Context Slot Manager ───────────────────────────────
 // Browsers limit simultaneous WebGL contexts to ~8-16.
@@ -40,14 +41,55 @@ interface Product3DViewProps {
   className?: string;
 }
 
-function Model({ modelPath }: { modelPath: string }) {
-  const { scene } = useGLTF(modelPath);
-  const groupRef = useRef<Group>(null);
+/**
+ * Loads both head and glasses, then dynamically fits glasses onto the head
+ * using bounding-box geometry analysis.
+ */
+function SceneContent({ glassesModelPath }: { glassesModelPath: string }) {
+  const headGltf = useGLTF("/models/sefo.glb");
+  const glassesGltf = useGLTF(glassesModelPath);
+
+  const headRef = useRef<THREE.Group>(null);
+  const glassesRef = useRef<THREE.Group>(null);
+  const fittedRef = useRef(false);
+
+  // Clone scenes to avoid shared state between card instances
+  const [headScene] = useState(() => headGltf.scene.clone(true));
+  const [glassesScene] = useState(() => glassesGltf.scene.clone(true));
+
+  // Run fitting once both models are in the scene
+  useEffect(() => {
+    if (fittedRef.current) return;
+
+    // Wait a tick for Three.js to process the primitives into the scene graph
+    const timer = setTimeout(() => {
+      const headObj = headRef.current;
+      const glassesObj = glassesRef.current;
+
+      if (!headObj || !glassesObj) {
+        console.warn("[SceneContent] Refs not ready yet.");
+        return;
+      }
+
+      fitGlassesToHead(headObj, glassesObj);
+      fittedRef.current = true;
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [headScene, glassesScene]);
 
   return (
-    <Center>
-      <primitive ref={groupRef} object={scene.clone()} />
-    </Center>
+    <>
+      {/* Head Model */}
+      <group ref={headRef}>
+        <primitive object={headScene} />
+      </group>
+
+      {/* Glasses Model — positioned/scaled by fitGlassesToHead */}
+      <group ref={glassesRef}>
+        <primitive object={glassesScene} />
+      </group>
+    </>
   );
 }
 
@@ -65,7 +107,7 @@ function Product3DCanvas({ modelPath }: { modelPath: string }) {
     <Canvas
       camera={{ position: [0, 0, 4.5], fov: 45 }}
       style={{ width: "100%", height: "100%" }}
-      gl={{ powerPreference: "default", antialias: true }}
+      gl={{ preserveDrawingBuffer: true, powerPreference: "default", antialias: true }}
     >
       {/* Environment map for PBR material reflections */}
       <Environment preset="studio" />
@@ -76,9 +118,9 @@ function Product3DCanvas({ modelPath }: { modelPath: string }) {
       <directionalLight position={[-3, 3, -5]} intensity={0.8} />
       <directionalLight position={[0, -3, 2]} intensity={0.4} />
 
-      {/* Model */}
+      {/* Models with dynamic fitting */}
       <Suspense fallback={<LoadingFallback />}>
-        <Model modelPath={modelPath} />
+        <SceneContent glassesModelPath={modelPath} />
       </Suspense>
 
       {/* Horizontal rotation only, limited to ±90° */}
